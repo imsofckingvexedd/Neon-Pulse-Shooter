@@ -1,0 +1,1705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Pulse - 2D Shooter</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0a0f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    color: #e0e0ff;
+  }
+  #gameContainer {
+    position: relative;
+    box-shadow: 0 0 40px rgba(0, 255, 200, 0.15);
+  }
+  canvas {
+    display: block;
+    background: #0d0d14;
+    border: 2px solid #1a1a2e;
+    border-radius: 8px;
+    cursor: crosshair;
+  }
+  #ui {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+  }
+  #hud {
+    position: absolute;
+    top: 12px; left: 16px;
+    font-size: 15px;
+    line-height: 1.5;
+    text-shadow: 0 0 8px #00ffc8;
+  }
+  #hud span { color: #00ffc8; font-weight: 600; }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(5, 5, 12, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto;
+    transition: opacity 0.25s;
+  }
+  #overlay.hidden { opacity: 0; pointer-events: none; }
+  h1 {
+    font-size: 42px;
+    letter-spacing: 4px;
+    color: #00ffc8;
+    text-shadow: 0 0 20px #00ffc8, 0 0 40px #00ffc8;
+    margin-bottom: 6px;
+  }
+  .subtitle { color: #8888aa; margin-bottom: 20px; font-size: 14px; }
+  button {
+    background: transparent;
+    border: 2px solid #00ffc8;
+    color: #00ffc8;
+    padding: 10px 28px;
+    font-size: 16px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    margin: 5px;
+  }
+  button:hover {
+    background: #00ffc8;
+    color: #0a0a0f;
+    box-shadow: 0 0 18px #00ffc8;
+  }
+  button.secondary {
+    border-color: #aa88ff;
+    color: #aa88ff;
+  }
+  button.secondary:hover {
+    background: #aa88ff;
+    color: #0a0a0f;
+    box-shadow: 0 0 18px #aa88ff;
+  }
+  button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .controls {
+    margin-top: 18px;
+    font-size: 12px;
+    color: #666688;
+    text-align: center;
+    line-height: 1.55;
+  }
+  #finalScore { font-size: 20px; margin: 10px 0; color: #fff; }
+  .credits-line { color: #ffcc00; margin: 6px 0 12px; font-size: 15px; }
+  .shop-panel {
+    background: rgba(8, 8, 18, 0.97);
+    border: 2px solid #00ffc8;
+    border-radius: 12px;
+    padding: 18px 20px;
+    width: 480px;
+    max-width: 94%;
+    max-height: 92%;
+    overflow-y: auto;
+    text-align: left;
+  }
+  .shop-panel h2 {
+    color: #00ffc8;
+    text-align: center;
+    letter-spacing: 3px;
+    margin-bottom: 8px;
+  }
+  .shop-credits {
+    text-align: center;
+    color: #ffcc00;
+    font-size: 17px;
+    margin-bottom: 14px;
+  }
+  .shop-section { margin-bottom: 14px; }
+  .shop-section h3 {
+    color: #aa88ff;
+    font-size: 13px;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+  .shop-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 9px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    margin-bottom: 5px;
+    font-size: 13px;
+  }
+  .shop-item .name { color: #e0e0ff; font-weight: 600; }
+  .shop-item .desc { color: #777; font-size: 11px; }
+  .shop-item button {
+    padding: 5px 12px;
+    font-size: 12px;
+    margin: 0;
+    min-width: 64px;
+  }
+  .skin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+  }
+  .skin-btn {
+    background: rgba(0,0,0,0.45);
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 9px 2px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 22px;
+    transition: all 0.15s;
+    color: #ccc;
+  }
+  .skin-btn:hover, .skin-btn.selected {
+    border-color: #00ffc8;
+    background: rgba(0,255,200,0.12);
+    box-shadow: 0 0 10px rgba(0,255,200,0.25);
+  }
+  .skin-btn .label {
+    display: block;
+    font-size: 10px;
+    margin-top: 3px;
+    color: #999;
+  }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="c" width="900" height="600"></canvas>
+  <div id="ui">
+    <div id="hud">
+      SCORE <span id="score">0</span><br>
+      HEALTH <span id="health">150</span><br>
+      WAVE <span id="wave">1</span>
+    </div>
+    <div id="overlay">
+      <div id="menuView">
+        <h1>NEON PULSE</h1>
+        <div class="subtitle">survive the waves. don't get cooked.</div>
+        <div id="diffRow" style="margin-bottom:14px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+          <button id="diffEasy" class="secondary" style="padding:6px 12px;font-size:12px;">EASY</button>
+          <button id="diffNormal" style="padding:6px 12px;font-size:12px;">NORMAL</button>
+          <button id="diffHard" class="secondary" style="padding:6px 12px;font-size:12px;">HARD</button>
+          <button id="diffCatastrophic" class="secondary" style="padding:6px 12px;font-size:12px;border-color:#ff3355;color:#ff3355;">CATASTROPHIC</button>
+        </div>
+        <button id="btnStart">START</button>
+        <button id="btnShop" class="secondary">SHOP</button>
+        <button id="btnFarm" class="secondary">FARM</button>
+        <button id="btnAccount" class="secondary">ACCOUNT</button>
+        <button id="btnFeedback" class="secondary">FEEDBACK</button>
+        <div class="controls">
+          WASD / Arrows — move<br>
+          Mouse — aim & shoot<br>
+          Space — also shoot
+        </div>
+      </div>
+      <div id="shopView" style="display:none;"></div>
+      <div id="farmView" style="display:none;"></div>
+      <div id="accountView" style="display:none;"></div>
+      <div id="feedbackView" style="display:none;"></div>
+      <div id="gameoverView" style="display:none;">
+        <h1>GAME OVER</h1>
+        <div id="finalScore"></div>
+        <div class="credits-line" id="earnedCredits"></div>
+        <button id="btnRetry">TRY AGAIN</button>
+        <button id="btnShopFromGO" class="secondary">SHOP</button>
+        <div class="controls">you almost had it tho</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width;
+const H = canvas.height;
+const overlay = document.getElementById('overlay');
+const menuView = document.getElementById('menuView');
+const shopView = document.getElementById('shopView');
+const farmView = document.getElementById('farmView');
+const accountView = document.getElementById('accountView');
+const feedbackView = document.getElementById('feedbackView');
+const gameoverView = document.getElementById('gameoverView');
+const scoreEl = document.getElementById('score');
+const healthEl = document.getElementById('health');
+const waveEl = document.getElementById('wave');
+
+let gameState = 'menu';
+let score = 0;
+let wave = 1;
+let keys = {};
+let mouse = { x: W/2, y: H/2, down: false };
+let lastShot = 0;
+let shake = 0;
+let powerupSpawnTimer = 0;
+
+const ACCOUNTS_KEY = 'neonPulseAccounts_v1';
+const SESSION_KEY = 'neonPulseSession_v1';
+const defaultSave = {
+  credits: 0,
+  upgrades: { health: 0, damage: 0, shield: 0, speed: 0, firerate: 0, multishot: 0, regen: 0 },
+  cursorSkin: 'default',
+  gunSkin: 'default',
+  unlockedCursors: ['default'],
+  unlockedGuns: ['default'],
+  unlockedBullets: ['default'],
+  bulletSkin: 'default',
+  difficulty: 'normal',
+  farm: {
+    generators: { clicker: 0, drone: 0, miner: 0, reactor: 0, singularity: 0 },
+    lastTick: Date.now()
+  }
+};
+
+function simpleHash(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16);
+}
+function loadAccounts() {
+  try {
+    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}');
+  } catch (e) { return {}; }
+}
+function writeAccounts(acc) {
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(acc));
+}
+function normalizeSave(parsed) {
+  return {
+    ...defaultSave,
+    ...parsed,
+    upgrades: { ...defaultSave.upgrades, ...((parsed && parsed.upgrades) || {}) },
+    unlockedCursors: (parsed && parsed.unlockedCursors) || ['default'],
+    unlockedGuns: (parsed && parsed.unlockedGuns) || ['default'],
+    unlockedBullets: (parsed && parsed.unlockedBullets) || ['default'],
+    farm: {
+      generators: { ...defaultSave.farm.generators, ...((parsed && parsed.farm && parsed.farm.generators) || {}) },
+      lastTick: (parsed && parsed.farm && parsed.farm.lastTick) || Date.now()
+    }
+  };
+}
+function getSessionUser() {
+  return localStorage.getItem(SESSION_KEY) || null;
+}
+function setSessionUser(username) {
+  if (username) localStorage.setItem(SESSION_KEY, username);
+  else localStorage.removeItem(SESSION_KEY);
+}
+function loadSave() {
+  const user = getSessionUser();
+  if (user) {
+    const acc = loadAccounts();
+    if (acc[user] && acc[user].save) return normalizeSave(acc[user].save);
+  }
+  // migrate old single-save if present
+  try {
+    const old = localStorage.getItem('neonPulseSave_v2');
+    if (old) return normalizeSave(JSON.parse(old));
+  } catch (e) {}
+  return JSON.parse(JSON.stringify(defaultSave));
+}
+function writeSave() {
+  const user = getSessionUser();
+  if (user) {
+    const acc = loadAccounts();
+    if (acc[user]) {
+      acc[user].save = save;
+      writeAccounts(acc);
+    }
+  } else {
+    localStorage.setItem('neonPulseSave_v2', JSON.stringify(save));
+  }
+}
+function createAccount(username, password) {
+  username = (username || '').trim().toLowerCase();
+  if (!username || username.length < 3) return 'username must be at least 3 characters';
+  if (!/^[a-z0-9_]+$/.test(username)) return 'only letters, numbers, underscore';
+  if (!password || password.length < 4) return 'password must be at least 4 characters';
+  const acc = loadAccounts();
+  if (acc[username]) return 'username already taken';
+  acc[username] = {
+    pass: simpleHash(password + '::' + username),
+    created: Date.now(),
+    save: JSON.parse(JSON.stringify(defaultSave))
+  };
+  writeAccounts(acc);
+  setSessionUser(username);
+  save = normalizeSave(acc[username].save);
+  return null;
+}
+function loginAccount(username, password) {
+  username = (username || '').trim().toLowerCase();
+  const acc = loadAccounts();
+  if (!acc[username]) return 'account not found';
+  if (acc[username].pass !== simpleHash(password + '::' + username)) return 'wrong password';
+  // save current guest progress? no - switch fully
+  setSessionUser(username);
+  save = normalizeSave(acc[username].save);
+  // claim offline farm
+  if (typeof tickFarm === 'function') tickFarm(true);
+  return null;
+}
+function logoutAccount() {
+  writeSave();
+  setSessionUser(null);
+  save = JSON.parse(JSON.stringify(defaultSave));
+}
+let save = loadSave();
+
+// ========== IDLE FARM ==========
+const FARM_GENS = {
+  clicker:     { name: 'Auto Clicker',  desc: '0.5 💰/sec each',  rate: 0.5,  baseCost: 15,   costScale: 1.15 },
+  drone:       { name: 'Scrap Drone',   desc: '4 💰/sec each',    rate: 4,    baseCost: 100,  costScale: 1.18 },
+  miner:       { name: 'Credit Miner',  desc: '25 💰/sec each',   rate: 25,   baseCost: 800,  costScale: 1.2 },
+  reactor:     { name: 'Neon Reactor',  desc: '150 💰/sec each',  rate: 150,  baseCost: 6000, costScale: 1.22 },
+  singularity: { name: 'Singularity',   desc: '1000 💰/sec each', rate: 1000, baseCost: 50000,costScale: 1.25 }
+};
+
+function getFarmGenCost(key) {
+  const def = FARM_GENS[key];
+  const owned = (save.farm.generators[key] || 0);
+  return Math.floor(def.baseCost * Math.pow(def.costScale, owned));
+}
+function getFarmRate() {
+  let total = 0;
+  for (const [key, def] of Object.entries(FARM_GENS)) {
+    total += (save.farm.generators[key] || 0) * def.rate;
+  }
+  return total;
+}
+function tickFarm(forceSave) {
+  if (!save.farm) {
+    save.farm = { generators: { clicker: 0, drone: 0, miner: 0, reactor: 0, singularity: 0 }, lastTick: Date.now() };
+  }
+  const now = Date.now();
+  const elapsed = Math.min(86400, (now - (save.farm.lastTick || now)) / 1000); // cap 24h offline
+  const rate = getFarmRate();
+  if (elapsed > 0.2 && rate > 0) {
+    save.credits += rate * elapsed;
+    save.farm.lastTick = now;
+    if (forceSave !== false) writeSave();
+    return rate * elapsed;
+  }
+  save.farm.lastTick = now;
+  return 0;
+}
+function buyFarmGen(key) {
+  const cost = getFarmGenCost(key);
+  if (save.credits < cost) return false;
+  save.credits -= cost;
+  save.farm.generators[key] = (save.farm.generators[key] || 0) + 1;
+  writeSave();
+  return true;
+}
+function manualFarmClick() {
+  // click power scales with clickers owned a bit
+  const bonus = 1 + (save.farm.generators.clicker || 0) * 0.15;
+  const gain = Math.floor(1 * bonus);
+  save.credits += gain;
+  writeSave();
+  return gain;
+}
+
+const UPGRADE_DEFS = {
+  health:   { name: 'Max Health',  desc: '+25 HP per level',           max: 6, baseCost: 60,  costScale: 1.5 },
+  damage:   { name: 'Damage',      desc: '+4 dmg per level',           max: 6, baseCost: 80,  costScale: 1.55 },
+  shield:   { name: 'Shield',      desc: '-10% dmg taken per level',   max: 5, baseCost: 100, costScale: 1.6 },
+  speed:    { name: 'Move Speed',  desc: '+0.45 speed per level',      max: 5, baseCost: 70,  costScale: 1.5 },
+  firerate: { name: 'Fire Rate',   desc: 'shoot faster per level',     max: 5, baseCost: 90,  costScale: 1.55 },
+  multishot:{ name: 'Multi Shot',  desc: '+1 extra bullet per level',  max: 3, baseCost: 150, costScale: 1.8 },
+  regen:    { name: 'Regen',       desc: '+0.4 HP/sec per level',      max: 4, baseCost: 110, costScale: 1.65 }
+};
+const CURSOR_SKINS = {
+  default: { label: 'Default', cost: 0 },
+  heart:   { label: 'Heart',   cost: 40 },
+  star:    { label: 'Star',    cost: 70 },
+  ghost:   { label: 'Ghost',   cost: 90 },
+  fire:    { label: 'Fire',    cost: 150 }
+};
+// reset if player had a removed skin selected
+if (!CURSOR_SKINS[save.cursorSkin]) {
+  save.cursorSkin = 'default';
+  writeSave();
+}
+
+// Drawn cursor artwork (no emojis)
+function drawCursorArt(id, x, y) {
+  ctx.save();
+  ctx.translate(x + 14, y + 14);
+  ctx.scale(0.9, 0.9);
+
+  if (id === 'default') {
+    // simple crosshair already handled by CSS
+  }
+  else if (id === 'heart') {
+    ctx.fillStyle = '#ff4d6d';
+    ctx.shadowColor = '#ff4d6d';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, 6);
+    ctx.bezierCurveTo(-12, -6, -18, 8, 0, 18);
+    ctx.bezierCurveTo(18, 8, 12, -6, 0, 6);
+    ctx.fill();
+  }
+  else if (id === 'star') {
+    ctx.fillStyle = '#ffd700';
+    ctx.shadowColor = '#ffaa00';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+      const r = i % 2 === 0 ? 14 : 6;
+      const px = Math.cos(a) * r;
+      const py = Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  else if (id === 'ghost') {
+    ctx.fillStyle = 'rgba(220,230,255,0.9)';
+    ctx.shadowColor = '#aaf';
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(0, -2, 11, Math.PI, 0);
+    ctx.lineTo(11, 12);
+    ctx.quadraticCurveTo(7, 8, 4, 12);
+    ctx.quadraticCurveTo(0, 8, -4, 12);
+    ctx.quadraticCurveTo(-7, 8, -11, 12);
+    ctx.closePath();
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = '#223';
+    ctx.beginPath();
+    ctx.arc(-4, -1, 2.2, 0, Math.PI * 2);
+    ctx.arc(4, -1, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  else if (id === 'fire') {
+    // flame layers
+    const flames = [
+      { c: '#ff4400', s: 1.0 },
+      { c: '#ff8800', s: 0.75 },
+      { c: '#ffcc00', s: 0.5 }
+    ];
+    flames.forEach((f, i) => {
+      ctx.fillStyle = f.c;
+      ctx.shadowColor = f.c;
+      ctx.shadowBlur = 10 - i * 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 14);
+      ctx.quadraticCurveTo(-12 * f.s, 0, -6 * f.s, -12 * f.s);
+      ctx.quadraticCurveTo(0, -4 * f.s, 6 * f.s, -12 * f.s);
+      ctx.quadraticCurveTo(12 * f.s, 0, 0, 14);
+      ctx.fill();
+    });
+  }
+
+  ctx.restore();
+}
+const GUN_SKINS = {
+  default: { label: 'Neon',    color: '#00ffc8', cost: 0 },
+  pink:    { label: 'Pink',    color: '#ff66cc', cost: 50 },
+  gold:    { label: 'Gold',    color: '#ffcc00', cost: 110 },
+  purple:  { label: 'Void',    color: '#cc66ff', cost: 160 },
+  red:     { label: 'Crimson', color: '#ff3355', cost: 220 },
+  ice:     { label: 'Ice',     color: '#88eeff', cost: 190 }
+};
+
+const BULLET_SKINS = {
+  default:  { label: 'Orb',       shape: 'orb',     color: '#00ffc8', glow: '#00ffc8', cost: 0,    dmg: 1.0 },
+  plasma:   { label: 'Plasma',    shape: 'laser',   color: '#00ffaa', glow: '#66ffdd', cost: 500,  dmg: 1.15 },
+  starbolt: { label: 'Starbolt',  shape: 'star',    color: '#ffdd44', glow: '#ffaa00', cost: 800,  dmg: 1.25 },
+  heart:    { label: 'Heart',     shape: 'heart',   color: '#ff66aa', glow: '#ff2288', cost: 1000, dmg: 1.1 },
+  crystal:  { label: 'Crystal',   shape: 'crystal', color: '#88ccff', glow: '#44aaff', cost: 1300, dmg: 1.35 },
+  ember:    { label: 'Ember',     shape: 'ember',   color: '#ff6622', glow: '#ff3300', cost: 1600, dmg: 1.45 },
+  void:     { label: 'Void',      shape: 'void',    color: '#cc66ff', glow: '#aa22ff', cost: 2000, dmg: 1.55 },
+  shard:    { label: 'Shard',     shape: 'shard',   color: '#aaffee', glow: '#66ffcc', cost: 1200, dmg: 1.3 },
+  rail:     { label: 'Rail',      shape: 'laser',   color: '#ffffff', glow: '#aaddff', cost: 2500, dmg: 1.8 },
+  nova:     { label: 'Nova',      shape: 'star',    color: '#ff44ff', glow: '#ff00aa', cost: 3000, dmg: 2.0 }
+};
+if (!BULLET_SKINS[save.bulletSkin]) {
+  save.bulletSkin = 'default';
+  writeSave();
+}
+
+const DIFFICULTY = {
+  easy:         { label: 'EASY',         enemyHp: 0.7,  enemySpd: 0.85, enemyDmg: 0.7,  spawn: 0.8,  creditMult: 0.7 },
+  normal:       { label: 'NORMAL',       enemyHp: 1.0,  enemySpd: 1.0,  enemyDmg: 1.0,  spawn: 1.0,  creditMult: 1.0 },
+  hard:         { label: 'HARD',         enemyHp: 1.45, enemySpd: 1.2,  enemyDmg: 1.35, spawn: 1.25, creditMult: 1.5 },
+  catastrophic: { label: 'CATASTROPHIC', enemyHp: 2.4,  enemySpd: 1.55, enemyDmg: 2.0,  spawn: 6.0,  creditMult: 2.5 }
+};
+function getDiff() {
+  return DIFFICULTY[save.difficulty] || DIFFICULTY.normal;
+}
+
+function getUpgradeCost(key) {
+  const def = UPGRADE_DEFS[key];
+  const lvl = save.upgrades[key] || 0;
+  return Math.floor(def.baseCost * Math.pow(def.costScale, lvl));
+}
+function getPlayerStats() {
+  const u = save.upgrades;
+  const h = u.health || 0;
+  const d = u.damage || 0;
+  const s = u.shield || 0;
+  const sp = u.speed || 0;
+  const fr = u.firerate || 0;
+  const ms = u.multishot || 0;
+  const rg = u.regen || 0;
+  return {
+    maxHp: 150 + h * 25,
+    damage: 18 + d * 4,
+    dmgReduction: Math.min(0.5, s * 0.10),
+    speed: 5.0 + sp * 0.45,
+    fireRate: Math.max(40, 100 - fr * 12),
+    multishot: ms,
+    regen: rg * 0.4
+  };
+}
+
+const player = {
+  x: W/2, y: H/2, r: 14, speed: 5.0,
+  hp: 150, maxHp: 150, damage: 18,
+  angle: 0, invuln: 0
+};
+let bullets = [];
+let enemies = [];
+let particles = [];
+let powerups = [];
+let enemiesToSpawn = 0;
+let spawnTimer = 0;
+let waveClearTimer = 0;
+
+let audioCtx = null;
+let masterGain = null;
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.32;
+  masterGain.connect(audioCtx.destination);
+}
+function playTone({ freq = 440, type = 'square', duration = 0.1, volume = 0.3, slideTo = null, delay = 0 }) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime + delay;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (slideTo !== null) osc.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t + duration);
+  gain.gain.setValueAtTime(0, t);
+  gain.gain.linearRampToValueAtTime(volume, t + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(masterGain);
+  osc.start(t);
+  osc.stop(t + duration + 0.02);
+}
+function playNoise({ duration = 0.15, volume = 0.25, filterFreq = 1000 }) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const bufferSize = audioCtx.sampleRate * duration;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(filterFreq, t);
+  filter.frequency.exponentialRampToValueAtTime(100, t + duration);
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(volume, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(masterGain);
+  noise.start(t);
+  noise.stop(t + duration + 0.02);
+}
+const sfx = {
+  shoot() { playTone({ freq: 680, type: 'square', duration: 0.07, volume: 0.16, slideTo: 180 }); },
+  hit() {
+    playTone({ freq: 220, type: 'sawtooth', duration: 0.08, volume: 0.2, slideTo: 80 });
+    playNoise({ duration: 0.06, volume: 0.1, filterFreq: 800 });
+  },
+  explode() {
+    playNoise({ duration: 0.22, volume: 0.28, filterFreq: 1400 });
+    playTone({ freq: 120, type: 'sawtooth', duration: 0.25, volume: 0.22, slideTo: 40 });
+  },
+  hurt() {
+    playTone({ freq: 160, type: 'sawtooth', duration: 0.18, volume: 0.25, slideTo: 60 });
+    playNoise({ duration: 0.12, volume: 0.12, filterFreq: 600 });
+  },
+  powerup() {
+    playTone({ freq: 520, type: 'sine', duration: 0.08, volume: 0.18, delay: 0 });
+    playTone({ freq: 780, type: 'sine', duration: 0.1, volume: 0.16, delay: 0.07 });
+    playTone({ freq: 1040, type: 'sine', duration: 0.14, volume: 0.14, delay: 0.14 });
+  },
+  wave() {
+    playTone({ freq: 300, type: 'triangle', duration: 0.12, volume: 0.18 });
+    playTone({ freq: 450, type: 'triangle', duration: 0.15, volume: 0.16, delay: 0.1 });
+    playTone({ freq: 600, type: 'triangle', duration: 0.2, volume: 0.14, delay: 0.2 });
+  },
+  gameover() {
+    playTone({ freq: 200, type: 'sawtooth', duration: 0.4, volume: 0.22, slideTo: 60 });
+    playTone({ freq: 150, type: 'sawtooth', duration: 0.5, volume: 0.18, slideTo: 40, delay: 0.15 });
+  },
+  enemyShoot() { playTone({ freq: 320, type: 'square', duration: 0.09, volume: 0.12, slideTo: 140 }); }
+};
+
+function updateHUD() {
+  scoreEl.textContent = score;
+  healthEl.textContent = Math.max(0, Math.floor(player.hp));
+  waveEl.textContent = wave;
+}
+function resetGame() {
+  const stats = getPlayerStats();
+  score = 0;
+  wave = 1;
+  player.x = W / 2;
+  player.y = H / 2;
+  player.maxHp = stats.maxHp;
+  player.hp = stats.maxHp;
+  player.damage = stats.damage;
+  player.speed = stats.speed;
+  player.invuln = 0;
+  bullets = [];
+  enemies = [];
+  particles = [];
+  powerups = [];
+  enemiesToSpawn = 6;
+  spawnTimer = 0;
+  waveClearTimer = 0;
+  powerupSpawnTimer = 0;
+  updateHUD();
+}
+function spawnEnemy() {
+  const d = getDiff();
+  const side = Math.floor(Math.random() * 4);
+  let x, y;
+  if (side === 0) { x = Math.random() * W; y = -30; }
+  else if (side === 1) { x = W + 30; y = Math.random() * H; }
+  else if (side === 2) { x = Math.random() * W; y = H + 30; }
+  else { x = -30; y = Math.random() * H; }
+  const typeRoll = Math.random();
+  let type = 'basic';
+  if (wave > 3 && typeRoll > 0.65) type = 'fast';
+  if (wave > 6 && typeRoll > 0.82) type = 'tank';
+  if (wave > 8 && typeRoll > 0.90) type = 'shooter';
+  const base = {
+    basic:  { r: 16, hp: 18 + wave * 3, speed: 1.2 + wave * 0.06, color: '#ff4466', score: 10 },
+    fast:   { r: 12, hp: 12 + wave * 2, speed: 2.4 + wave * 0.08, color: '#ffaa00', score: 15 },
+    tank:   { r: 24, hp: 60 + wave * 8, speed: 0.8 + wave * 0.03, color: '#aa44ff', score: 35 },
+    shooter:{ r: 15, hp: 28 + wave * 4, speed: 1.0 + wave * 0.04, color: '#44aaff', score: 30, shootCd: 0 }
+  }[type];
+  const hp = Math.max(1, Math.floor(base.hp * d.enemyHp));
+  enemies.push({
+    x, y, r: base.r, hp, maxHp: hp,
+    speed: base.speed * d.enemySpd,
+    color: base.color, score: Math.floor(base.score * d.creditMult),
+    type, shootCd: base.shootCd || 0, vx: 0, vy: 0
+  });
+}
+function spawnBoss() {
+  const d = getDiff();
+  const isCata = save.difficulty === 'catastrophic';
+  const baseHp = 220 + wave * 25;
+  const hp = Math.floor(baseHp * d.enemyHp * (isCata ? 3.5 : 1));
+  const radius = isCata ? 72 : 38;
+  enemies.push({
+    x: W / 2 + (Math.random() - 0.5) * 80, y: -80,
+    r: radius, hp, maxHp: hp,
+    speed: (0.55 + wave * 0.02) * d.enemySpd * (isCata ? 0.85 : 1),
+    color: isCata ? '#ff0044' : '#ff22aa',
+    score: Math.floor(200 * d.creditMult * (isCata ? 4 : 1)),
+    type: 'boss', shootCd: isCata ? 30 : 50, patternTimer: 0, vx: 0, vy: 0,
+    huge: isCata
+  });
+  sfx.wave();
+}
+function startWave() {
+  const d = getDiff();
+  enemiesToSpawn = Math.floor((5 + wave * 2) * d.spawn);
+  if (wave % 5 === 0) {
+    enemiesToSpawn += Math.floor(4 * d.spawn);
+    spawnBoss();
+  }
+  spawnTimer = 0;
+}
+function nextWave() {
+  wave++;
+  startWave();
+  player.hp = Math.min(player.maxHp, player.hp + 40);
+  updateHUD();
+  sfx.wave();
+}
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 1 + Math.random() * 4;
+    particles.push({
+      x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 30 + Math.random() * 20, maxLife: 50, color, size: 2 + Math.random() * 3
+    });
+  }
+}
+function shoot() {
+  const now = performance.now();
+  const stats = getPlayerStats();
+  if (now - lastShot < stats.fireRate) return;
+  lastShot = now;
+  const dx = mouse.x - player.x;
+  const dy = mouse.y - player.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const baseAng = Math.atan2(dy, dx);
+  const bullet = BULLET_SKINS[save.bulletSkin] || BULLET_SKINS.default;
+  const count = 1 + stats.multishot;
+  const spread = count > 1 ? 0.18 : 0;
+  for (let i = 0; i < count; i++) {
+    const ang = baseAng + (i - (count - 1) / 2) * spread;
+    bullets.push({
+      x: player.x + Math.cos(ang) * 18,
+      y: player.y + Math.sin(ang) * 18,
+      vx: Math.cos(ang) * 12,
+      vy: Math.sin(ang) * 12,
+      r: 5, life: 100, fromPlayer: true,
+      color: bullet.color, glow: bullet.glow, shape: bullet.shape,
+      dmgMult: bullet.dmg || 1
+    });
+  }
+  sfx.shoot();
+}
+
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' || e.code === 'Space') e.preventDefault();
+});
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = (e.clientX - rect.left) * (W / rect.width);
+  mouse.y = (e.clientY - rect.top) * (H / rect.height);
+});
+canvas.addEventListener('mousedown', () => mouse.down = true);
+canvas.addEventListener('mouseup', () => mouse.down = false);
+window.addEventListener('blur', () => { keys = {}; mouse.down = false; });
+
+function showView(name) {
+  menuView.style.display = name === 'menu' ? 'block' : 'none';
+  shopView.style.display = name === 'shop' ? 'block' : 'none';
+  farmView.style.display = name === 'farm' ? 'block' : 'none';
+  accountView.style.display = name === 'account' ? 'block' : 'none';
+  feedbackView.style.display = name === 'feedback' ? 'block' : 'none';
+  gameoverView.style.display = name === 'gameover' ? 'block' : 'none';
+  overlay.classList.remove('hidden');
+}
+
+const FEEDBACK_KEY = 'neonPulseInbox_v1';
+const DEV_USER = 'vex';
+
+function loadInbox() {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function writeInbox(list) {
+  localStorage.setItem(FEEDBACK_KEY, JSON.stringify(list));
+}
+function submitFeedback(title, body, fromUser) {
+  const list = loadInbox();
+  list.unshift({
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    title,
+    body,
+    from: fromUser || 'guest',
+    difficulty: save.difficulty || 'normal',
+    credits: Math.floor(save.credits),
+    at: Date.now(),
+    read: false
+  });
+  // keep last 100
+  if (list.length > 100) list.length = 100;
+  writeInbox(list);
+}
+function unreadCount() {
+  return loadInbox().filter(m => !m.read).length;
+}
+
+function renderAccount() {
+  const user = getSessionUser();
+  let html = '<div class="shop-panel"><h2>ACCOUNT</h2>';
+  if (user) {
+    html += '<div class="shop-credits">logged in as <span style="color:#00ffc8">' + user + '</span></div>';
+    html += '<div style="text-align:center;color:#888;font-size:12px;margin-bottom:12px;">progress is saved to this account on this device</div>';
+
+    // DEV INBOX — only for vex
+    if (user === DEV_USER) {
+      const inbox = loadInbox();
+      const unread = inbox.filter(m => !m.read).length;
+      html += '<div class="shop-section"><h3>INBOX' + (unread ? ' <span style="color:#ff6688">(' + unread + ' new)</span>' : '') + '</h3>';
+      if (!inbox.length) {
+        html += '<div style="color:#666;font-size:12px;padding:8px;">no feedback yet</div>';
+      } else {
+        inbox.forEach(m => {
+          const date = new Date(m.at).toLocaleString();
+          const border = m.read ? '#333' : '#ff6688';
+          html += '<div class="shop-item" style="flex-direction:column;align-items:stretch;border-left:3px solid ' + border + ';margin-bottom:8px;">';
+          html += '<div style="display:flex;justify-content:space-between;gap:8px;">';
+          html += '<div class="name">' + (m.read ? '' : '● ') + m.title + '</div>';
+          html += '<button data-delmsg="' + m.id + '" style="padding:2px 8px;font-size:11px;min-width:auto;">✕</button>';
+          html += '</div>';
+          html += '<div class="desc">from <b>' + m.from + '</b> · ' + date + ' · ' + m.difficulty + ' · ' + m.credits + '💰</div>';
+          html += '<div style="color:#ccc;font-size:12px;margin-top:4px;white-space:pre-wrap;">' + m.body.replace(/</g, '&lt;') + '</div>';
+          html += '</div>';
+        });
+        html += '<div style="text-align:center;margin-top:6px;"><button id="btnMarkRead" class="secondary" style="padding:6px 12px;font-size:12px;">MARK ALL READ</button></div>';
+      }
+      html += '</div>';
+    }
+
+    html += '<div style="text-align:center;margin-top:10px;"><button id="btnLogout" class="secondary">LOG OUT</button></div>';
+  } else {
+    html += '<div style="text-align:center;color:#ffcc00;margin-bottom:10px;font-size:13px;">playing as guest — create an account to keep progress</div>';
+    html += '<div class="shop-section"><h3>LOGIN</h3>';
+    html += '<div style="margin-bottom:8px;"><input id="loginUser" placeholder="username" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;"></div>';
+    html += '<div style="margin-bottom:8px;"><input id="loginPass" type="password" placeholder="password" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;"></div>';
+    html += '<button id="btnLogin" style="width:100%;">LOGIN</button></div>';
+    html += '<div class="shop-section"><h3>CREATE ACCOUNT</h3>';
+    html += '<div style="color:#888;font-size:11px;margin-bottom:6px;">no email needed — username + password only</div>';
+    html += '<div style="margin-bottom:8px;"><input id="regUser" placeholder="username" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;"></div>';
+    html += '<div style="margin-bottom:8px;"><input id="regPass" type="password" placeholder="password (min 4)" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;"></div>';
+    html += '<button id="btnRegister" style="width:100%;">CREATE</button></div>';
+  }
+  html += '<div id="accountMsg" style="text-align:center;color:#ff6688;font-size:12px;margin-top:8px;min-height:16px;"></div>';
+  html += '<button class="secondary" id="btnAccountBack" style="display:block;margin:14px auto 0;">← BACK</button></div>';
+  accountView.innerHTML = html;
+
+  const msg = document.getElementById('accountMsg');
+  if (document.getElementById('btnLogin')) {
+    document.getElementById('btnLogin').onclick = () => {
+      const err = loginAccount(document.getElementById('loginUser').value, document.getElementById('loginPass').value);
+      if (err) { msg.textContent = err; return; }
+      renderAccount();
+    };
+  }
+  if (document.getElementById('btnRegister')) {
+    document.getElementById('btnRegister').onclick = () => {
+      const err = createAccount(document.getElementById('regUser').value, document.getElementById('regPass').value);
+      if (err) { msg.textContent = err; return; }
+      renderAccount();
+    };
+  }
+  if (document.getElementById('btnLogout')) {
+    document.getElementById('btnLogout').onclick = () => {
+      logoutAccount();
+      renderAccount();
+    };
+  }
+  if (document.getElementById('btnMarkRead')) {
+    document.getElementById('btnMarkRead').onclick = () => {
+      const list = loadInbox().map(m => ({ ...m, read: true }));
+      writeInbox(list);
+      renderAccount();
+    };
+  }
+  accountView.querySelectorAll('[data-delmsg]').forEach(btn => {
+    btn.onclick = () => {
+      writeInbox(loadInbox().filter(m => m.id !== btn.dataset.delmsg));
+      renderAccount();
+    };
+  });
+  document.getElementById('btnAccountBack').onclick = () => showView('menu');
+}
+
+function renderFeedback() {
+  const user = getSessionUser() || 'guest';
+  let html = '<div class="shop-panel"><h2>FEEDBACK</h2>';
+  html += '<div style="text-align:center;color:#888;font-size:12px;margin-bottom:12px;">sends straight to the dev inbox in-game</div>';
+  html += '<div style="margin-bottom:8px;"><input id="fbTitle" placeholder="short title" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;"></div>';
+  html += '<div style="margin-bottom:8px;"><textarea id="fbBody" placeholder="your feedback / bug report / idea..." rows="5" style="width:100%;padding:8px;background:#111;border:1px solid #444;color:#eee;border-radius:4px;resize:vertical;"></textarea></div>';
+  html += '<button id="btnSendFeedback" style="width:100%;">SEND FEEDBACK</button>';
+  html += '<div id="fbMsg" style="text-align:center;color:#88ffcc;font-size:12px;margin-top:8px;min-height:16px;"></div>';
+  html += '<button class="secondary" id="btnFeedbackBack" style="display:block;margin:14px auto 0;">← BACK</button></div>';
+  feedbackView.innerHTML = html;
+
+  document.getElementById('btnSendFeedback').onclick = () => {
+    const title = (document.getElementById('fbTitle').value || '').trim();
+    const body = (document.getElementById('fbBody').value || '').trim();
+    if (!title || !body) {
+      document.getElementById('fbMsg').style.color = '#ff6688';
+      document.getElementById('fbMsg').textContent = 'fill in title and message';
+      return;
+    }
+    submitFeedback(title, body, user);
+    document.getElementById('fbTitle').value = '';
+    document.getElementById('fbBody').value = '';
+    document.getElementById('fbMsg').style.color = '#88ffcc';
+    document.getElementById('fbMsg').textContent = 'sent — the dev will see it in their inbox';
+  };
+  document.getElementById('btnFeedbackBack').onclick = () => showView('menu');
+}
+
+function renderFarm() {
+  tickFarm();
+  const rate = getFarmRate();
+  let html = '<div class="shop-panel"><h2>CREDIT FARM</h2>';
+  html += '<div class="shop-credits">💰 ' + Math.floor(save.credits).toLocaleString() + '</div>';
+  html += '<div style="text-align:center;color:#88ffcc;margin-bottom:12px;font-size:14px;">+' + rate.toFixed(1) + ' 💰/sec</div>';
+  html += '<div style="text-align:center;margin-bottom:14px;"><button id="btnFarmClick" style="padding:14px 28px;font-size:16px;">👊 CLICK (+' + Math.floor(1 + (save.farm.generators.clicker || 0) * 0.15) + ')</button></div>';
+  html += '<div class="shop-section"><h3>GENERATORS</h3>';
+  for (const [key, def] of Object.entries(FARM_GENS)) {
+    const owned = save.farm.generators[key] || 0;
+    const cost = getFarmGenCost(key);
+    html += '<div class="shop-item"><div><div class="name">' + def.name + ' <span style="color:#00ffc8">×' + owned + '</span></div>';
+    html += '<div class="desc">' + def.desc + ' · total ' + (owned * def.rate).toFixed(1) + '/sec</div></div>';
+    html += '<button data-farm="' + key + '"' + (save.credits < cost ? ' disabled' : '') + '>' + cost.toLocaleString() + '💰</button></div>';
+  }
+  html += '</div><button class="secondary" id="btnFarmBack" style="display:block;margin:14px auto 0;">← BACK</button></div>';
+  farmView.innerHTML = html;
+
+  document.getElementById('btnFarmClick').onclick = () => {
+    manualFarmClick();
+    renderFarm();
+  };
+  farmView.querySelectorAll('[data-farm]').forEach(btn => {
+    btn.onclick = () => {
+      if (buyFarmGen(btn.dataset.farm)) renderFarm();
+    };
+  });
+  document.getElementById('btnFarmBack').onclick = () => {
+    tickFarm();
+    showView('menu');
+  };
+}
+function renderShop() {
+  let html = '<div class="shop-panel"><h2>SHOP</h2><div class="shop-credits">💰 Credits: ' + save.credits + '</div><div class="shop-section"><h3>PERMANENT UPGRADES</h3>';
+  for (const key of ['health', 'damage', 'shield', 'speed', 'firerate', 'multishot', 'regen']) {
+    const def = UPGRADE_DEFS[key];
+    const lvl = save.upgrades[key] || 0;
+    const cost = getUpgradeCost(key);
+    const maxed = lvl >= def.max;
+    html += '<div class="shop-item"><div><div class="name">' + def.name + ' <span style="color:#00ffc8">Lv.' + lvl + '/' + def.max + '</span></div><div class="desc">' + def.desc + '</div></div><button data-up="' + key + '"' + (maxed || save.credits < cost ? ' disabled' : '') + '>' + (maxed ? 'MAX' : cost + '💰') + '</button></div>';
+  }
+  html += '</div><div class="shop-section"><h3>CURSOR SKINS</h3><div class="skin-grid">';
+  for (const [id, skin] of Object.entries(CURSOR_SKINS)) {
+    const selected = save.cursorSkin === id;
+    const owned = save.unlockedCursors.includes(id);
+    const price = skin.cost === 0 ? 'FREE' : (owned ? 'OWNED' : skin.cost + '💰');
+    html += '<div class="skin-btn' + (selected ? ' selected' : '') + '" data-cursor="' + id + '"><span style="font-size:18px">✦</span><span class="label">' + skin.label + '</span><span class="label" style="color:#ffcc00">' + price + '</span></div>';
+  }
+  html += '</div></div><div class="shop-section"><h3>GUN SKINS</h3><div class="skin-grid">';
+  for (const [id, skin] of Object.entries(GUN_SKINS)) {
+    const selected = save.gunSkin === id;
+    const owned = save.unlockedGuns.includes(id);
+    const price = skin.cost === 0 ? 'FREE' : (owned ? 'OWNED' : skin.cost + '💰');
+    html += '<div class="skin-btn' + (selected ? ' selected' : '') + '" data-gun="' + id + '" style="color:' + skin.color + '">🔫<span class="label">' + skin.label + '</span><span class="label" style="color:#ffcc00">' + price + '</span></div>';
+  }
+  html += '</div></div><div class="shop-section"><h3>BULLET SKINS</h3><div class="skin-grid">';
+  for (const [id, skin] of Object.entries(BULLET_SKINS)) {
+    const selected = save.bulletSkin === id;
+    const owned = save.unlockedBullets.includes(id);
+    const price = skin.cost === 0 ? 'FREE' : (owned ? 'OWNED' : skin.cost + '💰');
+    const dmgLabel = '×' + skin.dmg;
+    html += '<div class="skin-btn' + (selected ? ' selected' : '') + '" data-bullet="' + id + '" style="color:' + skin.color + '">✦<span class="label">' + skin.label + '</span><span class="label" style="color:#ff8888">' + dmgLabel + '</span><span class="label" style="color:#ffcc00">' + price + '</span></div>';
+  }
+  html += '</div></div><button class="secondary" id="btnShopBack" style="display:block;margin:14px auto 0;">← BACK</button></div>';
+  shopView.innerHTML = html;
+
+  shopView.querySelectorAll('[data-up]').forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.up;
+      const cost = getUpgradeCost(key);
+      if (save.credits >= cost && (save.upgrades[key] || 0) < UPGRADE_DEFS[key].max) {
+        save.credits -= cost;
+        save.upgrades[key] = (save.upgrades[key] || 0) + 1;
+        writeSave();
+        renderShop();
+      }
+    };
+  });
+  shopView.querySelectorAll('[data-cursor]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.cursor;
+      const skin = CURSOR_SKINS[id];
+      if (!save.unlockedCursors.includes(id)) {
+        if (save.credits < skin.cost) return;
+        save.credits -= skin.cost;
+        save.unlockedCursors.push(id);
+      }
+      save.cursorSkin = id;
+      writeSave();
+      renderShop();
+    };
+  });
+  shopView.querySelectorAll('[data-gun]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.gun;
+      const skin = GUN_SKINS[id];
+      if (!save.unlockedGuns.includes(id)) {
+        if (save.credits < skin.cost) return;
+        save.credits -= skin.cost;
+        save.unlockedGuns.push(id);
+      }
+      save.gunSkin = id;
+      writeSave();
+      renderShop();
+    };
+  });
+  shopView.querySelectorAll('[data-bullet]').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.bullet;
+      const skin = BULLET_SKINS[id];
+      if (!save.unlockedBullets.includes(id)) {
+        if (save.credits < skin.cost) return;
+        save.credits -= skin.cost;
+        save.unlockedBullets.push(id);
+      }
+      save.bulletSkin = id;
+      writeSave();
+      renderShop();
+    };
+  });
+  document.getElementById('btnShopBack').onclick = () => {
+    if (gameState === 'gameover') showView('gameover');
+    else showView('menu');
+  };
+}
+function startGame() {
+  initAudio();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  resetGame();
+  startWave();
+  gameState = 'playing';
+  overlay.classList.add('hidden');
+  sfx.wave();
+}
+function showGameOver() {
+  const earned = Math.max(5, Math.floor(score / 8 * getDiff().creditMult));
+  save.credits += earned;
+  writeSave();
+  document.getElementById('finalScore').textContent = 'SCORE: ' + score + '  •  WAVE ' + wave;
+  document.getElementById('earnedCredits').textContent = '+' + earned + ' credits earned';
+  showView('gameover');
+}
+
+function updateDiffButtons() {
+  const map = {
+    easy: 'diffEasy',
+    normal: 'diffNormal',
+    hard: 'diffHard',
+    catastrophic: 'diffCatastrophic'
+  };
+  for (const [key, id] of Object.entries(map)) {
+    const btn = document.getElementById(id);
+    if (!btn) continue;
+    if (save.difficulty === key) {
+      if (key === 'catastrophic') {
+        btn.style.borderColor = '#ff3355';
+        btn.style.color = '#fff';
+        btn.style.background = 'rgba(255,40,60,0.35)';
+        btn.style.boxShadow = '0 0 14px rgba(255,40,60,0.5)';
+      } else {
+        btn.style.borderColor = '#00ffc8';
+        btn.style.color = '#00ffc8';
+        btn.style.background = 'rgba(0,255,200,0.12)';
+        btn.style.boxShadow = 'none';
+      }
+    } else {
+      if (key === 'catastrophic') {
+        btn.style.borderColor = '#ff3355';
+        btn.style.color = '#ff3355';
+        btn.style.background = 'transparent';
+        btn.style.boxShadow = 'none';
+      } else {
+        btn.style.borderColor = '#aa88ff';
+        btn.style.color = '#aa88ff';
+        btn.style.background = 'transparent';
+        btn.style.boxShadow = 'none';
+      }
+    }
+  }
+}
+function setDifficulty(d) {
+  if (d === 'catastrophic') {
+    const ok = confirm(
+      '⚠ CATASTROPHIC DIFFICULTY ⚠\n\n' +
+      '• Enemies have 2.4× HP\n' +
+      '• Move 55% faster\n' +
+      '• Deal double damage\n' +
+      '• 500% MORE enemies spawn\n' +
+      '• The screen will be full of them\n' +
+      '• Credits ×2.5 if you somehow survive\n\n' +
+      'You will get cooked.\n\nContinue anyway?'
+    );
+    if (!ok) return;
+  }
+  save.difficulty = d;
+  writeSave();
+  updateDiffButtons();
+}
+document.getElementById('diffEasy').onclick = () => setDifficulty('easy');
+document.getElementById('diffNormal').onclick = () => setDifficulty('normal');
+document.getElementById('diffHard').onclick = () => setDifficulty('hard');
+document.getElementById('diffCatastrophic').onclick = () => setDifficulty('catastrophic');
+updateDiffButtons();
+
+document.getElementById('btnStart').onclick = startGame;
+document.getElementById('btnShop').onclick = () => { renderShop(); showView('shop'); };
+document.getElementById('btnFarm').onclick = () => { renderFarm(); showView('farm'); };
+document.getElementById('btnAccount').onclick = () => { renderAccount(); showView('account'); };
+document.getElementById('btnFeedback').onclick = () => { renderFeedback(); showView('feedback'); };
+document.getElementById('btnRetry').onclick = () => { showView('menu'); updateDiffButtons(); };
+document.getElementById('btnShopFromGO').onclick = () => { renderShop(); showView('shop'); };
+
+// passive farm income even while in menus / playing
+setInterval(() => {
+  tickFarm(true);
+  if (farmView.style.display === 'block') {
+    // live-update credits + button affordability without full re-render
+    const creditEl = farmView.querySelector('.shop-credits');
+    if (creditEl) creditEl.textContent = '💰 ' + Math.floor(save.credits).toLocaleString();
+    const rateEl = farmView.querySelector('.shop-credits + div');
+    if (rateEl) rateEl.textContent = '+' + getFarmRate().toFixed(1) + ' 💰/sec';
+    farmView.querySelectorAll('[data-farm]').forEach(btn => {
+      const key = btn.dataset.farm;
+      const cost = getFarmGenCost(key);
+      btn.textContent = cost.toLocaleString() + '💰';
+      btn.disabled = save.credits < cost;
+    });
+  }
+}, 400);
+
+// claim offline earnings on load
+tickFarm(true);
+
+function update() {
+  if (gameState !== 'playing') return;
+  let mx = 0, my = 0;
+  if (keys['w'] || keys['arrowup']) my -= 1;
+  if (keys['s'] || keys['arrowdown']) my += 1;
+  if (keys['a'] || keys['arrowleft']) mx -= 1;
+  if (keys['d'] || keys['arrowright']) mx += 1;
+  if (mx || my) {
+    const len = Math.hypot(mx, my);
+    player.x += (mx / len) * player.speed;
+    player.y += (my / len) * player.speed;
+  }
+  player.x = Math.max(player.r, Math.min(W - player.r, player.x));
+  player.y = Math.max(player.r, Math.min(H - player.r, player.y));
+  player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+  if (mouse.down || keys[' ']) shoot();
+  if (player.invuln > 0) player.invuln--;
+
+  // passive regen
+  const regen = getPlayerStats().regen;
+  if (regen > 0 && player.hp < player.maxHp) {
+    player.hp = Math.min(player.maxHp, player.hp + regen / 60);
+    if (Math.random() < 0.05) updateHUD();
+  }
+
+  // keep speed in sync with upgrades
+  player.speed = getPlayerStats().speed;
+
+  if (enemiesToSpawn > 0) {
+    spawnTimer--;
+    if (spawnTimer <= 0) {
+      spawnEnemy();
+      enemiesToSpawn--;
+      const baseInterval = Math.max(22, 55 - wave * 2);
+      spawnTimer = save.difficulty === 'catastrophic' ? Math.max(6, Math.floor(baseInterval * 0.35)) : baseInterval;
+    }
+  } else if (enemies.length === 0) {
+    waveClearTimer++;
+    if (waveClearTimer > 90) {
+      nextWave();
+      waveClearTimer = 0;
+    }
+  }
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx; b.y += b.vy; b.life--;
+    if (b.life <= 0 || b.x < -30 || b.x > W + 30 || b.y < -30 || b.y > H + 30) bullets.splice(i, 1);
+  }
+
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    const dx = player.x - e.x;
+    const dy = player.y - e.y;
+    const dist = Math.hypot(dx, dy) || 1;
+    e.vx = (dx / dist) * e.speed;
+    e.vy = (dy / dist) * e.speed;
+    e.x += e.vx; e.y += e.vy;
+
+    // enemy-enemy collision (push apart)
+    for (let j = i + 1; j < enemies.length; j++) {
+      const o = enemies[j];
+      const ox = e.x - o.x;
+      const oy = e.y - o.y;
+      const od = Math.hypot(ox, oy) || 0.01;
+      const minDist = e.r + o.r;
+      if (od < minDist) {
+        const push = (minDist - od) * 0.5;
+        const nx = ox / od;
+        const ny = oy / od;
+        // bosses push harder / don't get pushed as much
+        const eW = e.type === 'boss' ? 0.15 : 1;
+        const oW = o.type === 'boss' ? 0.15 : 1;
+        e.x += nx * push * eW;
+        e.y += ny * push * eW;
+        o.x -= nx * push * oW;
+        o.y -= ny * push * oW;
+      }
+    }
+
+    if (e.type === 'shooter') {
+      e.shootCd = (e.shootCd || 0) - 1;
+      if (e.shootCd <= 0 && dist < 380) {
+        e.shootCd = 70 - Math.min(25, wave);
+        bullets.push({ x: e.x, y: e.y, vx: (dx / dist) * 5.5, vy: (dy / dist) * 5.5, r: 5, life: 100, fromPlayer: false, color: '#44aaff' });
+        sfx.enemyShoot();
+      }
+    }
+    if (e.type === 'boss') {
+      e.shootCd = (e.shootCd || 0) - 1;
+      e.patternTimer = (e.patternTimer || 0) + 1;
+      const keepDist = e.huge ? 220 : 180;
+      if (dist < keepDist) { e.vx *= 0.9; e.vy *= 0.9; }
+      if (e.shootCd <= 0) {
+        if (e.huge) {
+          // catastrophic boss: full ring + aimed volleys
+          if (e.patternTimer % 200 < 100) {
+            for (let a = 0; a < Math.PI * 2; a += Math.PI / 8) {
+              bullets.push({
+                x: e.x, y: e.y,
+                vx: Math.cos(a) * 3.8, vy: Math.sin(a) * 3.8,
+                r: 7, life: 140, fromPlayer: false, color: '#ff0044'
+              });
+            }
+            e.shootCd = 40;
+          } else {
+            for (let k = -3; k <= 3; k++) {
+              const ang = Math.atan2(dy, dx) + k * 0.14;
+              bullets.push({
+                x: e.x, y: e.y,
+                vx: Math.cos(ang) * 6.2, vy: Math.sin(ang) * 6.2,
+                r: 6, life: 130, fromPlayer: false, color: '#ff66aa'
+              });
+            }
+            e.shootCd = 28;
+          }
+        } else if (e.patternTimer % 180 < 90) {
+          for (let a = -0.6; a <= 0.6; a += 0.3) {
+            const ang = Math.atan2(dy, dx) + a;
+            bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * 4.2, vy: Math.sin(ang) * 4.2, r: 6, life: 130, fromPlayer: false, color: '#ff22aa' });
+          }
+          e.shootCd = 55;
+        } else {
+          for (let k = -1; k <= 1; k++) {
+            const ang = Math.atan2(dy, dx) + k * 0.18;
+            bullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * 5.8, vy: Math.sin(ang) * 5.8, r: 5, life: 120, fromPlayer: false, color: '#ff66cc' });
+          }
+          e.shootCd = 38;
+        }
+        sfx.enemyShoot();
+      }
+    }
+
+    if (dist < e.r + player.r && player.invuln <= 0) {
+      const base = e.type === 'boss' ? (e.huge ? 28 : 16) : e.type === 'tank' ? 10 : e.type === 'fast' ? 6 : 7;
+      const stats = getPlayerStats();
+      player.hp -= Math.max(1, Math.floor(base * getDiff().enemyDmg * (1 - stats.dmgReduction)));
+      player.invuln = e.type === 'boss' ? 60 : 50;
+      shake = e.type === 'boss' ? 14 : 8;
+      spawnParticles(player.x, player.y, '#00ffc8', 8);
+      sfx.hurt();
+      updateHUD();
+      if (player.hp <= 0) { gameState = 'gameover'; sfx.gameover(); showGameOver(); }
+    }
+
+    for (let j = bullets.length - 1; j >= 0; j--) {
+      const b = bullets[j];
+      if (!b.fromPlayer) continue;
+      if (Math.hypot(b.x - e.x, b.y - e.y) < e.r + b.r) {
+        e.hp -= player.damage * (b.dmgMult || 1);
+        bullets.splice(j, 1);
+        spawnParticles(b.x, b.y, e.color, 6);
+        sfx.hit();
+        if (e.hp <= 0) {
+          score += e.score;
+          const isBoss = e.type === 'boss';
+          spawnParticles(e.x, e.y, e.color, isBoss ? 40 : 18);
+          sfx.explode();
+          if (isBoss) {
+            powerups.push({ x: e.x, y: e.y, type: 'health', life: 500, r: 12 });
+            powerups.push({ x: e.x + 28, y: e.y - 18, type: 'health', life: 500, r: 11 });
+            spawnParticles(e.x, e.y, '#ffffff', 18);
+          } else if (Math.random() < 0.55) {
+            powerups.push({ x: e.x, y: e.y, type: 'health', life: 400, r: 10 });
+          }
+          enemies.splice(i, 1);
+          updateHUD();
+          break;
+        }
+      }
+    }
+  }
+
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    if (b.fromPlayer) continue;
+    if (Math.hypot(b.x - player.x, b.y - player.y) < player.r + b.r && player.invuln <= 0) {
+      const stats = getPlayerStats();
+      player.hp -= Math.max(1, Math.floor(8 * getDiff().enemyDmg * (1 - stats.dmgReduction)));
+      player.invuln = 45;
+      shake = 8;
+      bullets.splice(i, 1);
+      spawnParticles(player.x, player.y, '#ff4466', 8);
+      sfx.hurt();
+      updateHUD();
+      if (player.hp <= 0) { gameState = 'gameover'; sfx.gameover(); showGameOver(); }
+    }
+  }
+
+  powerupSpawnTimer++;
+  if (powerupSpawnTimer > 180) {
+    powerupSpawnTimer = 0;
+    if (powerups.length < 8 && Math.random() < 0.7) {
+      powerups.push({ x: 40 + Math.random() * (W - 80), y: 40 + Math.random() * (H - 80), type: 'health', life: 500, r: 11 });
+    }
+  }
+
+  for (let i = powerups.length - 1; i >= 0; i--) {
+    const p = powerups[i];
+    p.life--;
+    if (p.life <= 0) { powerups.splice(i, 1); continue; }
+    if (Math.hypot(p.x - player.x, p.y - player.y) < player.r + p.r) {
+      player.hp = Math.min(player.maxHp, player.hp + 40);
+      updateHUD();
+      spawnParticles(p.x, p.y, '#00ff88', 10);
+      sfx.powerup();
+      powerups.splice(i, 1);
+    }
+  }
+
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life--;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  if (shake > 0) shake *= 0.85;
+}
+
+function draw() {
+  ctx.save();
+  if (shake > 0.5) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+  ctx.fillStyle = '#0d0d14';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(0, 255, 200, 0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * (p.life / p.maxLife), 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  powerups.forEach(p => {
+    const pulse = 0.7 + Math.sin(Date.now() / 150) * 0.3;
+    ctx.fillStyle = 'rgba(0, 255, 136, ' + pulse + ')';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#00ff88';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  });
+
+  bullets.forEach(b => {
+    const col = b.fromPlayer ? (b.color || '#00ffc8') : (b.color || '#ff4466');
+    const glow = b.fromPlayer ? (b.glow || b.color || '#00ffc8') : col;
+    const shape = b.fromPlayer ? (b.shape || 'orb') : 'orb';
+    const t = Date.now() / 1000;
+
+    ctx.save();
+    ctx.translate(b.x, b.y);
+
+    if (b.fromPlayer) {
+      const ang = Math.atan2(b.vy, b.vx);
+      ctx.rotate(ang);
+
+      // motion trail
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = glow;
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = 6;
+      for (let i = 1; i <= 3; i++) {
+        ctx.beginPath();
+        ctx.arc(-i * 6, 0, Math.max(1.5, b.r - i), 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      if (shape === 'orb') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(0, 0, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(-1.5, -1.5, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      else if (shape === 'laser') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 16;
+        // outer glow beam
+        ctx.fillStyle = glow;
+        ctx.globalAlpha = 0.35;
+        ctx.fillRect(-14, -4, 28, 8);
+        ctx.globalAlpha = 1;
+        // core
+        ctx.fillStyle = col;
+        ctx.fillRect(-12, -2.2, 24, 4.4);
+        // bright center line
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-10, -0.8, 20, 1.6);
+      }
+      else if (shape === 'star') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 12;
+        ctx.rotate(t * 8); // spin
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+          const r = i % 2 === 0 ? 8 : 3.5;
+          const px = Math.cos(a) * r, py = Math.sin(a) * r;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      else if (shape === 'heart') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(0, 5);
+        ctx.bezierCurveTo(-8, -4, -11, 5, 0, 12);
+        ctx.bezierCurveTo(11, 5, 8, -4, 0, 5);
+        ctx.fill();
+        // highlight
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.ellipse(-3, 1, 2.5, 1.5, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      else if (shape === 'crystal') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 14;
+        // main diamond
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(0, -9); ctx.lineTo(6, 0); ctx.lineTo(0, 9); ctx.lineTo(-6, 0);
+        ctx.closePath();
+        ctx.fill();
+        // inner facet
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -5); ctx.lineTo(3, 0); ctx.lineTo(0, 2); ctx.lineTo(-1.5, 0);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      else if (shape === 'ember') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 16;
+        // outer flame
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(0, 8);
+        ctx.quadraticCurveTo(-7, 1, -4, -9);
+        ctx.quadraticCurveTo(0, -3, 4, -9);
+        ctx.quadraticCurveTo(7, 1, 0, 8);
+        ctx.fill();
+        // hot core
+        ctx.fillStyle = '#ffee88';
+        ctx.beginPath();
+        ctx.moveTo(0, 4);
+        ctx.quadraticCurveTo(-3, 0, -1.5, -5);
+        ctx.quadraticCurveTo(0, -1, 1.5, -5);
+        ctx.quadraticCurveTo(3, 0, 0, 4);
+        ctx.fill();
+      }
+      else if (shape === 'void') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 18;
+        // outer ring
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.stroke();
+        // spinning inner arcs
+        ctx.rotate(t * 6);
+        ctx.beginPath();
+        ctx.arc(0, 0, 4.5, 0, Math.PI * 1.2);
+        ctx.stroke();
+        // core
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(0, 0, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      else if (shape === 'shard') {
+        ctx.shadowColor = glow;
+        ctx.shadowBlur = 12;
+        ctx.fillStyle = col;
+        // elongated crystal shard
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(2, -4);
+        ctx.lineTo(-8, -2);
+        ctx.lineTo(-8, 2);
+        ctx.lineTo(2, 4);
+        ctx.closePath();
+        ctx.fill();
+        // edge highlight
+        ctx.strokeStyle = '#fff';
+        ctx.globalAlpha = 0.5;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(2, -4);
+        ctx.lineTo(-8, -2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      // enemy bullets stay simple
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.arc(0, 0, b.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    ctx.shadowBlur = 0;
+  });
+
+  enemies.forEach(e => {
+    ctx.fillStyle = e.color;
+    ctx.shadowColor = e.color;
+    ctx.shadowBlur = 12;
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (e.hp < e.maxHp) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = e.color;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, e.r + 5, -Math.PI / 2, -Math.PI / 2 + (e.hp / e.maxHp) * Math.PI * 2);
+      ctx.stroke();
+    }
+  });
+
+  if (player.invuln <= 0 || Math.floor(player.invuln / 4) % 2 === 0) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    ctx.rotate(player.angle);
+    const gunCol = (GUN_SKINS[save.gunSkin] || GUN_SKINS.default).color;
+    ctx.shadowColor = gunCol;
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = gunCol;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-10, 10);
+    ctx.lineTo(-6, 0);
+    ctx.lineTo(-10, -10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#e0ffff';
+    ctx.beginPath();
+    ctx.arc(-2, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  if (gameState === 'playing') {
+    ctx.strokeStyle = 'rgba(0, 255, 200, 0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    const cId = save.cursorSkin || 'default';
+    if (cId !== 'default') {
+      drawCursorArt(cId, mouse.x, mouse.y);
+    }
+  }
+  ctx.restore();
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
