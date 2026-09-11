@@ -364,11 +364,11 @@ let save = loadSave();
 
 // ========== IDLE FARM ==========
 const FARM_GENS = {
-  clicker:     { name: 'Auto Clicker',  desc: '0.5 💰/sec each',  rate: 0.5,  baseCost: 15,   costScale: 1.15 },
-  drone:       { name: 'Scrap Drone',   desc: '4 💰/sec each',    rate: 4,    baseCost: 100,  costScale: 1.18 },
-  miner:       { name: 'Credit Miner',  desc: '25 💰/sec each',   rate: 25,   baseCost: 800,  costScale: 1.2 },
-  reactor:     { name: 'Neon Reactor',  desc: '150 💰/sec each',  rate: 150,  baseCost: 6000, costScale: 1.22 },
-  singularity: { name: 'Singularity',   desc: '1000 💰/sec each', rate: 1000, baseCost: 50000,costScale: 1.25 }
+  clicker:     { name: 'Auto Clicker',  desc: '0.2 💰/sec each',  rate: 0.5,  baseCost: 1.5,   costScale: 1.15 },
+  drone:       { name: 'Scrap Drone',   desc: '1 💰/sec each',    rate: 4,    baseCost: 25,  costScale: 1.18 },
+  miner:       { name: 'Credit Miner',  desc: '5 💰/sec each',   rate: 25,   baseCost: 100,  costScale: 1.2 },
+  reactor:     { name: 'Neon Reactor',  desc: '20 💰/sec each',  rate: 150,  baseCost: 500, costScale: 1.22 },
+  singularity: { name: 'Singularity',   desc: '100 💰/sec each', rate: 1000, baseCost: 5000,costScale: 1.25 }
 };
 
 function getFarmGenCost(key) {
